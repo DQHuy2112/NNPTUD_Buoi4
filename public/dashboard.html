@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Sản phẩm</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Dashboard Sản phẩm</h1>
+    <p class="loading" id="loading">Đang tải...</p>
+    <div class="toolbar">
+      <div class="search-bar">
+        <label for="searchInput">Tìm theo tên:</label>
+        <input type="text" id="searchInput" placeholder="Nhập tên sản phẩm..." autocomplete="off" />
+      </div>
+      <div class="per-page">
+        <label for="perPageSelect">Hiển thị:</label>
+        <select id="perPageSelect">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+        </select>
+        <span>mỗi trang</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="products-table" id="productsTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Hình ảnh</th>
+            <th class="th-sort" data-sort="title">Tên <span class="sort-icon"></span></th>
+            <th class="th-sort" data-sort="price">Giá <span class="sort-icon"></span></th>
+            <th>Danh mục</th>
+            <th class="col-description">Mô tả</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination-bar" id="paginationBar">
+      <div class="pagination-info" id="paginationInfo"></div>
+      <div class="pagination-controls" id="paginationControls"></div>
+    </div>
+  </div>
+  <script>
+    const tbody = document.getElementById('tbody');
+    const loading = document.getElementById('loading');
+    const searchInput = document.getElementById('searchInput');
+    const perPageSelect = document.getElementById('perPageSelect');
+    const paginationInfo = document.getElementById('paginationInfo');
+    const paginationControls = document.getElementById('paginationControls');
+
+    let allProducts = [];
+    let filteredProducts = [];
+    let currentPage = 1;
+    let perPage = 10;
+    let sortBy = '';
+    let sortDir = 'asc';
+
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        allProducts = await res.json();
+        loading.style.display = 'none';
+        applySearch();
+      } catch (err) {
+        loading.textContent = 'Lỗi tải dữ liệu: ' + err.message;
+      }
+    }
+
+    function applySearch() {
+      const q = (searchInput.value || '').trim().toLowerCase();
+      filteredProducts = q
+        ? allProducts.filter(p => (p.title || '').toLowerCase().includes(q))
+        : allProducts.slice();
+      currentPage = 1;
+      renderPage();
+    }
+
+    function getSortedList() {
+      const list = filteredProducts.slice();
+      if (sortBy === 'title') {
+        list.sort((a, b) => {
+          const x = (a.title || '').toLowerCase();
+          const y = (b.title || '').toLowerCase();
+          return (sortDir === 'asc' ? 1 : -1) * x.localeCompare(y);
+        });
+      } else if (sortBy === 'price') {
+        list.sort((a, b) => {
+          const x = Number(a.price) || 0;
+          const y = Number(b.price) || 0;
+          return (sortDir === 'asc' ? 1 : -1) * (x - y);
+        });
+      }
+      return list;
+    }
+
+    function renderPage() {
+      const sorted = getSortedList();
+      const total = sorted.length;
+      const totalPages = Math.max(1, Math.ceil(total / perPage));
+      const page = Math.min(Math.max(1, currentPage), totalPages);
+      currentPage = page;
+
+      const start = (page - 1) * perPage;
+      const end = Math.min(start + perPage, total);
+      const pageData = sorted.slice(start, end);
+
+      updateSortIcons();
+      renderTable(pageData);
+      renderPagination(total, start, end, totalPages);
+    }
+
+    function updateSortIcons() {
+      document.querySelectorAll('.th-sort').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        const key = th.dataset.sort;
+        if (!icon) return;
+        if (sortBy === key) {
+          icon.textContent = sortDir === 'asc' ? ' ↑' : ' ↓';
+          icon.setAttribute('aria-label', sortDir === 'asc' ? 'Tăng dần (bấm để giảm)' : 'Giảm dần (bấm để tăng)');
+        } else {
+          icon.textContent = ' ↕';
+          icon.setAttribute('aria-label', 'Sắp xếp');
+        }
+      });
+    }
+
+    function handleSort(column) {
+      if (sortBy === column) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortBy = column;
+        sortDir = 'asc';
+      }
+      currentPage = 1;
+      renderPage();
+    }
+
+    function renderPagination(total, start, end, totalPages) {
+      if (total === 0) {
+        paginationInfo.textContent = 'Không có dữ liệu';
+        paginationControls.innerHTML = '';
+        return;
+      }
+      paginationInfo.textContent = `Hiển thị ${start + 1}-${end} của ${total} sản phẩm`;
+      let html = '';
+      if (currentPage > 1) {
+        html += `<button type="button" class="btn-page" data-page="${currentPage - 1}">Trước</button>`;
+      }
+      for (let i = 1; i <= totalPages; i++) {
+        const active = i === currentPage ? ' active' : '';
+        html += `<button type="button" class="btn-page${active}" data-page="${i}">${i}</button>`;
+      }
+      if (currentPage < totalPages) {
+        html += `<button type="button" class="btn-page" data-page="${currentPage + 1}">Sau</button>`;
+      }
+      paginationControls.innerHTML = html;
+      paginationControls.querySelectorAll('.btn-page').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentPage = parseInt(btn.dataset.page, 10);
+          renderPage();
+        });
+      });
+    }
+
+    searchInput.addEventListener('input', applySearch);
+    searchInput.addEventListener('change', applySearch);
+
+    perPageSelect.addEventListener('change', () => {
+      perPage = parseInt(perPageSelect.value, 10);
+      applySearch();
+    });
+
+    document.querySelectorAll('.th-sort').forEach(th => {
+      th.addEventListener('click', () => handleSort(th.dataset.sort));
+    });
+
+    // Fallback khi ảnh lỗi hoặc không load được (SVG, không cần tải mạng)
+    window.IMAGE_FALLBACK = 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="#eee" width="100" height="100"/><text x="50" y="52" text-anchor="middle" fill="#999" font-size="12" font-family="sans-serif">No image</text></svg>'
+    );
+
+    function renderTable(products) {
+      if (!products.length) {
+        tbody.innerHTML = '<tr><td colspan="6">Không có sản phẩm</td></tr>';
+        return;
+      }
+      tbody.innerHTML = products.map(p => {
+        const imagesHtml = (p.images && p.images.length)
+          ? p.images.map((url) => {
+              const isPlaceholder = typeof url === 'string' && url.includes('placehold.co');
+              const src = isPlaceholder ? window.IMAGE_FALLBACK : escapeHtml(url);
+              const extraClass = isPlaceholder ? ' img-failed' : '';
+              return `
+            <span class="img-wrap">
+              <img src="${src}" alt="" class="product-img${extraClass}" loading="lazy" decoding="async"
+                   onerror="this.onerror=null;this.src=window.IMAGE_FALLBACK;this.classList.add('img-failed');"
+                   onload="this.classList.add('img-loaded');" />
+            </span>
+          `;
+            }).join('')
+          : '<span>—</span>';
+        const categoryName = p.category ? p.category.name : '—';
+        const desc = (p.description || '').slice(0, 120) + (p.description && p.description.length > 120 ? '...' : '');
+        return `
+          <tr>
+            <td>${p.id}</td>
+            <td class="cell-images">${imagesHtml}</td>
+            <td>${escapeHtml(p.title)}</td>
+            <td>$${p.price}</td>
+            <td>${escapeHtml(categoryName)}</td>
+            <td class="col-description">${escapeHtml(desc)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
