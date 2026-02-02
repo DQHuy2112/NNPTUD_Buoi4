@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - Sản phẩm</title>
+  <title>Sản phẩm</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="container">
-    <h1>Dashboard Sản phẩm</h1>
+    <h1>Sản phẩm</h1>
     <p class="loading" id="loading">Đang tải...</p>
     <div class="toolbar">
       <div class="search-bar">
@@ -193,17 +195,17 @@
       tbody.innerHTML = products.map(p => {
         const imagesHtml = (p.images && p.images.length)
           ? p.images.map((url) => {
-              const isPlaceholder = typeof url === 'string' && url.includes('placehold.co');
-              const src = isPlaceholder ? window.IMAGE_FALLBACK : escapeHtml(url);
-              const extraClass = isPlaceholder ? ' img-failed' : '';
-              return `
+            const isPlaceholder = typeof url === 'string' && url.includes('placehold.co');
+            const src = isPlaceholder ? window.IMAGE_FALLBACK : escapeHtml(url);
+            const extraClass = isPlaceholder ? ' img-failed' : '';
+            return `
             <span class="img-wrap">
               <img src="${src}" alt="" class="product-img${extraClass}" loading="lazy" decoding="async"
                    onerror="this.onerror=null;this.src=window.IMAGE_FALLBACK;this.classList.add('img-failed');"
                    onload="this.classList.add('img-loaded');" />
             </span>
           `;
-            }).join('')
+          }).join('')
           : '<span>—</span>';
         const categoryName = p.category ? p.category.name : '—';
         const desc = (p.description || '').slice(0, 120) + (p.description && p.description.length > 120 ? '...' : '');
@@ -229,4 +231,5 @@
     loadProducts();
   </script>
 </body>
+
 </html>

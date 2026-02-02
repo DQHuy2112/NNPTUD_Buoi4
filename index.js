@@ -50,21 +50,91 @@ async function getAll() {
   return [];
 }
 
-// API cho dashboard: GET /api/products
+/**
+ * Lấy sản phẩm theo ID từ API
+ * @param {string|number} id - ID sản phẩm
+ * @returns {Promise<Object|null>} Sản phẩm hoặc null
+ */
+async function getById(id) {
+  try {
+    const response = await fetch(`${API_PRODUCTS}/${id}`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('getById error:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Lọc sản phẩm theo các query params
+ * @param {Array} products - Danh sách sản phẩm
+ * @param {Object} query - Query params: title, maxPrice, minPrice, slug
+ */
+function filterProducts(products, query) {
+  let result = [...products];
+
+  // title: includes (tìm kiếm chuỗi con, không phân biệt hoa thường)
+  if (query.title && query.title.trim()) {
+    const titleLower = query.title.trim().toLowerCase();
+    result = result.filter((p) =>
+      (p.title || '').toLowerCase().includes(titleLower)
+    );
+  }
+
+  // slug: equal (khớp chính xác)
+  if (query.slug && query.slug.trim()) {
+    const slugVal = query.slug.trim();
+    result = result.filter((p) => (p.slug || '') === slugVal);
+  }
+
+  // minPrice: giá >= minPrice
+  if (query.minPrice != null && query.minPrice !== '') {
+    const min = parseFloat(query.minPrice);
+    if (!isNaN(min)) {
+      result = result.filter((p) => (p.price ?? 0) >= min);
+    }
+  }
+
+  // maxPrice: giá <= maxPrice
+  if (query.maxPrice != null && query.maxPrice !== '') {
+    const max = parseFloat(query.maxPrice);
+    if (!isNaN(max)) {
+      result = result.filter((p) => (p.price ?? 0) <= max);
+    }
+  }
+
+  return result;
+}
+
+// GET /api/products - Danh sách sản phẩm với query: title, maxPrice, minPrice, slug
 app.get('/api/products', async (req, res) => {
   const products = await getAll();
-  res.json(products);
+  const filtered = filterProducts(products, req.query);
+  res.json(filtered);
 });
 
-// Trang dashboard
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+// GET /api/products/:id - Chi tiết sản phẩm theo ID
+app.get('/api/products/:id', async (req, res) => {
+  const id = req.params.id;
+  const product = await getById(id);
+  if (!product) {
+    return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+  }
+  res.json(product);
+});
+
+// Trang sản phẩm
+app.get('/product', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'product.html'));
 });
 
 app.get('/', (req, res) => {
-  res.redirect('/dashboard');
+  res.redirect('/product');
 });
 
 app.listen(PORT, () => {
-  console.log(`Server chạy tại http://localhost:${PORT}/dashboard`);
+  console.log(`Server chạy tại http://localhost:${PORT}/product`);
 });
